@@ -1,3 +1,29 @@
-<form action="post">
-    {{ form.hidden_tag() }}
+<form method="post">
+    <p>
+        {{ form.hidden_tag() }}
+        {{ form.username.label }}
+        {{ form.username()}}
+    </p>
+    
+    <p>
+        {{ form.email.label }}
+        {{ form.email() }}
+    </p>
+
+    <p>
+        {{ form.password.label }}
+    {{ form.password() }}
+    </p>
+    
+    <p>
+        {{ form.password2.label }}
+        {{ form.password2() }} 
+    </p>
+    
+    <p>
+        {{ form.submit.label }}
+        {{ form.submit() }}
+    </p>
+
+    
 </form>

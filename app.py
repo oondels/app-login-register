@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin, LoginManager, login_required, login_user, current_user, logout_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -78,12 +78,12 @@ def register():
   register_form = RegistoFormulario(csrf_enabled=False)
 
   if register_form.validate_on_submit():
-    
     user = User(username=register_form.username.data, email=register_form.email.data)
     user.set_passoword(register_form.password.data)
     db.session.add(user)
     db.session.commit()
-    return "Cadastrado com sucesso"
+    return f"{register_form.username.data} :Cadastrado com sucesso"
+       
   return render_template('register.html', title='Register', form=register_form)
 
 @app.route('/login', methods=["GET", "POST"])
@@ -98,7 +98,14 @@ def login():
            return redirect(url_for('dashboard'))
   return render_template("login.html", login_form=login_form)
 
+@app.route("/logout")
+def logout():
+   logout_user()
+   return redirect(url_for('login'))
+
+
 @app.route("/dashboard")
+@login_required
 def dashboard():
    return render_template("dashboard.html")
 

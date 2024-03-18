@@ -1,12 +1,12 @@
 import os
 from datetime import datetime
-from flask import Flask, render_template
+from flask import Flask, render_template, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin, LoginManager, login_required, login_user, current_user
-from werkzeug.security import generate_password_hash
+from flask_login import UserMixin, LoginManager, login_required, login_user, current_user, logout_user
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
-from wtforms.validators import DataRequired, Email, EqualTo
+from wtforms.validators import DataRequired, Email, EqualTo, ValidationError
 
 path = os.path.abspath(os.path.dirname(__file__))
 
@@ -21,6 +21,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_BINDS'] = {
    'user_database': 'sqlite:///' + os.path.join(path, 'user-database.db')
 }
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+
+@login_manager.user_loader
+def load_user(user_id):
+   return User.query.get(int(user_id))
 
 db = SQLAlchemy(app)
 
@@ -42,12 +50,23 @@ class User(UserMixin, db.Model):
 # Registration Form
         
 class RegistoFormulario(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
+    username = StringField('Username', validators=[DataRequired()], render_kw={"placeholder": "Username"})
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
     password2 = PasswordField('Repeat Password', validators=[DataRequired(), EqualTo('password')])
 
     submit = SubmitField('Register')
+
+    def validate_username(self, username):
+       existing_user_username = User.query.filter_by(username=username.data).first()
+       if existing_user_username:
+          raise ValidationError("Thas username already exists! Type another")
+
+class LoginFormulario(FlaskForm):
+    username = StringField('Username', validators=[DataRequired()], render_kw={"placeholder": "Username"})
+    password_hash = PasswordField('Password', validators=[DataRequired()])
+
+    submit = SubmitField('Login')
 
 @app.route('/')
 def index():
@@ -56,18 +75,32 @@ def index():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-  form = RegistoFormulario(csrf_enabled=False)
+  register_form = RegistoFormulario(csrf_enabled=False)
 
-  if form.validate_on_submit():
-    user = User(username=form.username.data, email=form.email.data)
-    user.set_passoword(form.password.data)
+  if register_form.validate_on_submit():
+    
+    user = User(username=register_form.username.data, email=register_form.email.data)
+    user.set_passoword(register_form.password.data)
     db.session.add(user)
     db.session.commit()
-  return render_template('register.html', title='Register', form=form)
+    return "Cadastrado com sucesso"
+  return render_template('register.html', title='Register', form=register_form)
 
-@app.route('/login')
+@app.route('/login', methods=["GET", "POST"])
 def login():
-   pass
+  login_form = LoginFormulario()
+
+  if login_form.validate_on_submit():
+     user = User.query.filter_by(username=login_form.username.data).first()
+     if user:
+        if check_password_hash(user.password_hash, login_form.password_hash.data):
+           login_user(user)
+           return redirect(url_for('dashboard'))
+  return render_template("login.html", login_form=login_form)
+
+@app.route("/dashboard")
+def dashboard():
+   return render_template("dashboard.html")
 
 if __name__ == '__main__':
    app.run(debug=True)
